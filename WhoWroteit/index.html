@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WhoWroteIt</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="WhoWroteIt: a research project that teaches a computer to tell which AI wrote a text.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a wide research showcase. Each result is a two-column band: the finding in words on the left, its evidence on the right. */
+:root {
+  --bg: #e9eff6;
+  --surface: #fbfdff;
+  --ink: #0f2038;
+  --muted: #51647c;
+  --line: #cbd7e4;
+  --soft: #dfe7f1;
+  --accent: #2250e6;
+  --accent2: #12b5a6;
+  --accent3: #ff8a5c;
+  --base: #0b8478;
+  --chat: #cc4f22;
+  --human: #6a7b92;
+  --on-accent: #ffffff;
+  --glass: rgba(251,253,255,.72);
+  --shadow: 0 18px 40px -18px rgba(16,40,90,.35);
+  --f-display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Newsreader", Georgia, "Times New Roman", serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1626; --surface: #142339; --ink: #e9f0f9; --muted: #9db0c7; --line: #2a4060; --soft: #1b2d47;
+    --accent: #86a8ff; --accent2: #4fe0cf; --accent3: #ffa27d; --base: #4fe0cf; --chat: #ffa27d; --human: #9db0c7; --on-accent: #0b1626;
+    --glass: rgba(20,35,57,.72); --shadow: 0 18px 40px -18px rgba(0,0,0,.7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1626; --surface: #142339; --ink: #e9f0f9; --muted: #9db0c7; --line: #2a4060; --soft: #1b2d47;
+    --accent: #86a8ff; --accent2: #4fe0cf; --accent3: #ffa27d; --base: #4fe0cf; --chat: #ffa27d; --human: #9db0c7; --on-accent: #0b1626;
+    --glass: rgba(20,35,57,.72); --shadow: 0 18px 40px -18px rgba(0,0,0,.7);
+    color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 1.15rem; line-height: 1.65;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1480px; margin: 0 auto; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.05; letter-spacing: -0.02em; }
+h2 { font-size: clamp(2rem, 3.4vw, 3.2rem); }
+h3 { font-size: 1.5rem; letter-spacing: -0.01em; }
+p { margin: 0; max-width: 64ch; }
+.mono { font-family: var(--f-mono); }
+.eyebrow { font-family: var(--f-display); font-weight: 700; font-size: 0.85rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+
+/* Top bar (matches the portfolio header) */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; margin: 1rem auto 0; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; padding: .7rem 1rem .7rem 1.5rem; background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: 999px; box-shadow: var(--shadow); font-family: var(--f-display); }
+.logo { font-weight: 800; text-decoration: none; letter-spacing: -.02em; color: var(--ink); font-size: 1.15rem; }
+.nav { display: flex; gap: .2rem; flex-wrap: wrap; }
+.nav a { text-decoration: none; color: var(--ink); font-size: .95rem; font-weight: 600; padding: .45rem .9rem; border-radius: 999px; transition: background .25s, color .25s; }
+.nav a:hover { background: var(--accent); color: var(--on-accent); }
+.nav a.back { border: 1.5px solid var(--ink); }
+
+/* Hero */
+.hero { position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 64px; align-items: end; padding-block: 72px 64px; }
+.hero h1 { font-size: clamp(3.2rem, 8vw, 7.6rem); font-weight: 800; letter-spacing: -0.04em; line-height: 0.92; margin-top: 18px; }
+.hero::before, .hero::after { content: ""; position: absolute; z-index: -1; border-radius: 50%; filter: blur(70px); opacity: .5; pointer-events: none; }
+.hero::before { width: min(520px, 60vw); aspect-ratio: 1; top: -3rem; right: -4rem; background: radial-gradient(circle, var(--accent), transparent 68%); }
+.hero::after { width: min(420px, 50vw); aspect-ratio: 1; bottom: -4rem; left: -6rem; background: radial-gradient(circle, var(--accent2), transparent 68%); }
+.hero h1 em { font-style: normal; background: linear-gradient(100deg, var(--accent), var(--accent2) 55%, var(--accent3)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero .lead { font-size: 1.3rem; line-height: 1.5; margin-top: 28px; max-width: 46ch; }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 28px; overflow: hidden; box-shadow: var(--shadow); }
+.stat { background: var(--surface); padding: 26px 28px; display: flex; flex-direction: column; gap: 6px; }
+.stat b { font-family: var(--f-display); font-size: clamp(2.4rem, 4vw, 3.6rem); line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.stat.key b { color: var(--accent); }
+.stat span { color: var(--muted); font-size: 1rem; line-height: 1.4; }
+
+/* Sections */
+section { padding-block: 88px; border-top: 1px solid var(--line); }
+.sec-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 64px; align-items: end; margin-bottom: 48px; }
+.sec-head .eyebrow { margin-bottom: 14px; }
+.sec-head p { font-size: 1.15rem; color: var(--muted); }
+.band { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 64px; align-items: start; }
+.band + .band { margin-top: 88px; }
+.finding { display: flex; flex-direction: column; gap: 18px; }
+.finding .tag { font-family: var(--f-mono); font-size: 0.8rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.finding h3 { font-size: clamp(1.8rem, 2.6vw, 2.5rem); }
+.finding ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 8px; max-width: 60ch; }
+.callout { border-left: 3px solid var(--accent); padding: 4px 0 4px 18px; font-size: 1.05rem; }
+.panel { position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: 28px; padding: 32px 30px 28px; min-width: 0; box-shadow: var(--shadow); }
+.panel::before, .card::before { content: ""; position: absolute; inset: 0 0 auto; height: 6px; background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent3)); }
+.panel-title { font-family: var(--f-display); font-weight: 700; font-size: 1.15rem; margin-bottom: 4px; }
+.panel-sub { color: var(--muted); font-size: 0.92rem; margin-bottom: 18px; }
+.source { color: var(--muted); font-size: 0.82rem; margin-top: 14px; font-family: var(--f-mono); }
+
+/* Writers grid */
+.writers { display: grid; grid-template-columns: 180px repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 28px; overflow: hidden; box-shadow: var(--shadow); }
+.writers > div { background: var(--surface); padding: 18px 22px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.writers .hd { font-family: var(--f-mono); font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); background: var(--soft); }
+.writers .co { font-family: var(--f-display); font-weight: 700; }
+.chip { font-family: var(--f-mono); font-size: 0.9rem; padding: 6px 12px; border-radius: 999px; border: 1.5px solid currentColor; }
+.chip.base { color: var(--base); }
+.chip.chat { color: var(--chat); }
+.chip.human { color: var(--human); }
+.legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 0.92rem; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; }
+
+/* Pipeline */
+.steps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; list-style: none; margin: 0; padding: 0; counter-reset: s; }
+.steps li { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 22px; display: flex; flex-direction: column; gap: 10px; counter-increment: s; }
+.steps li::before { content: counter(s, decimal-leading-zero); font-family: var(--f-mono); color: var(--accent); font-size: 0.9rem; }
+.steps b { font-family: var(--f-display); font-size: 1.2rem; }
+.steps span { color: var(--muted); font-size: 0.95rem; line-height: 1.5; }
+
+/* Bars */
+.bars { display: flex; flex-direction: column; gap: 18px; }
+.bar-row { display: grid; grid-template-columns: minmax(150px, 210px) minmax(0, 1fr) 118px; gap: 16px; align-items: center; }
+.bar-row .lbl { font-size: 1.02rem; }
+.bar-row .val { font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.98rem; }
+.track { height: 26px; background: var(--soft); border-radius: 6px; position: relative; }
+.fill { height: 100%; border-radius: 6px; background: var(--muted); opacity: 0.55; }
+.fill.hi { background: var(--accent); opacity: 1; }
+.whisk { position: absolute; top: 50%; height: 2px; background: var(--ink); transform: translateY(-50%); }
+.whisk::before, .whisk::after { content: ""; position: absolute; top: -6px; width: 2px; height: 14px; background: var(--ink); }
+.whisk::before { left: 0; } .whisk::after { right: 0; }
+.pair { display: flex; flex-direction: column; gap: 6px; }
+.pair .track { height: 18px; }
+
+/* Matrix */
+.toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 4px; gap: 4px; background: var(--soft); margin-bottom: 20px; }
+.toggle button { font: inherit; font-family: var(--f-display); font-weight: 600; font-size: 0.92rem; border: 0; background: transparent; color: var(--muted); padding: 8px 16px; border-radius: 999px; cursor: pointer; }
+.toggle button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.mx-scroll { overflow-x: auto; }
+table.mx { border-collapse: separate; border-spacing: 3px; font-family: var(--f-mono); font-size: 0.82rem; font-variant-numeric: tabular-nums; margin-inline: auto; }
+.mx th { font-weight: 500; color: var(--muted); white-space: nowrap; }
+.mx thead th { height: 112px; vertical-align: bottom; padding: 0; }
+.mx thead th div { writing-mode: vertical-rl; transform: rotate(180deg); padding-bottom: 6px; margin-inline: auto; }
+.mx tbody th { text-align: right; padding-right: 10px; }
+.mx td { width: 46px; height: 40px; text-align: center; border-radius: 5px; color: var(--ink); }
+.mx td.zero { color: var(--muted); opacity: 0.45; }
+.mx td.dark { color: var(--on-accent); }
+.mx .base { color: var(--base); } .mx .chat { color: var(--chat); } .mx .human { color: var(--human); }
+.axis-note { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.85rem; margin-top: 10px; gap: 12px; flex-wrap: wrap; }
+
+/* SVG charts */
+svg.chart { width: 100%; height: auto; display: block; }
+.c-grid { stroke: var(--line); }
+.c-axis { fill: var(--muted); font-family: var(--f-mono); font-size: 12px; }
+.c-label { fill: var(--ink); font-family: var(--f-mono); font-size: 12.5px; }
+.c-strong { fill: var(--ink); font-family: var(--f-display); font-size: 13px; font-weight: 700; }
+.c-accent-line { stroke: var(--accent); fill: none; stroke-width: 3; }
+.c-muted-line { stroke: var(--muted); fill: none; stroke-width: 2.5; stroke-dasharray: 6 5; }
+.c-accent-dot { fill: var(--accent); }
+.c-muted-dot { fill: var(--muted); }
+.c-ref { stroke: var(--muted); stroke-dasharray: 3 4; }
+.c-band { fill: var(--accent); opacity: 0.07; }
+.c-conn { stroke: var(--line); stroke-width: 4; stroke-linecap: round; }
+.c-base { fill: var(--base); } .c-chat { fill: var(--chat); } .c-human { fill: var(--human); }
+
+/* Bridge */
+.bridge { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 26px; }
+.bridge div { border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: var(--soft); }
+.bridge b { display: block; font-family: var(--f-display); font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.bridge .plus { color: var(--accent); }
+.bridge span { color: var(--muted); font-size: 0.9rem; line-height: 1.4; display: block; margin-top: 4px; }
+
+/* Next + limits */
+.cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.card { position: relative; overflow: hidden; box-shadow: var(--shadow); background: var(--surface); border: 1px solid var(--line); border-radius: 28px; padding: 30px 26px 26px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.card ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 8px; color: var(--muted); }
+.card ul b { color: var(--ink); font-weight: 600; }
+.status { align-self: flex-start; font-family: var(--f-mono); font-size: 0.78rem; padding: 4px 10px; border-radius: 999px; background: var(--soft); color: var(--muted); }
+.status.live { color: var(--accent); }
+.limits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 40px; margin-top: 40px; list-style: none; padding: 0; }
+.limits li { border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 4px; }
+.limits b { font-family: var(--f-display); font-weight: 700; }
+.limits span { color: var(--muted); font-size: 0.97rem; }
+
+/* Glossary */
+.gloss { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 32px; margin: 0; }
+.gloss div { border-top: 1px solid var(--line); padding-block: 16px; }
+.gloss dt { font-family: var(--f-display); font-weight: 700; }
+.gloss dd { margin: 4px 0 0; color: var(--muted); font-size: 0.95rem; line-height: 1.45; }
+
+/* Footer (dark panel, like the portfolio's contact panel) */
+footer { margin-block: 32px 64px; position: relative; isolation: isolate; overflow: hidden; padding: clamp(2.5rem, 6vw, 4.5rem); border-radius: 36px; background: var(--ink); color: var(--bg); display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 48px; }
+footer::before { content: ""; position: absolute; z-index: -1; width: 420px; aspect-ratio: 1; right: -120px; top: -140px; border-radius: 50%; background: radial-gradient(circle, var(--accent), transparent 65%); opacity: .7; }
+footer h2 { font-size: clamp(2.2rem, 4.5vw, 3.8rem); max-width: 14ch; }
+footer .eyebrow { color: var(--accent3); }
+footer .muted { color: var(--bg); opacity: .78; }
+.contact { display: flex; flex-direction: column; gap: 16px; }
+.contact b { font-family: var(--f-display); font-size: 1.25rem; }
+.mail { font-family: var(--f-display); font-weight: 600; font-size: 1.15rem; color: var(--bg); text-underline-offset: .3em; word-break: break-all; }
+.btn { align-self: flex-start; display: inline-block; font-family: var(--f-display); font-weight: 700; font-size: 1.02rem; padding: .9rem 1.7rem; border-radius: 999px; text-decoration: none; background: var(--bg); color: var(--ink); transition: transform .25s; }
+.btn:hover { transform: translateY(-3px); }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.tools span { font-family: var(--f-display); font-weight: 600; font-size: 0.88rem; border: 1px solid color-mix(in srgb, var(--bg) 35%, transparent); border-radius: 999px; padding: 5px 12px; }
+
+@media (max-width: 1180px) {
+  .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .gloss { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 980px) {
+  .hero, .sec-head, .band, footer { grid-template-columns: minmax(0, 1fr); gap: 36px; }
+  .top { border-radius: 24px; }
+  .cols { grid-template-columns: minmax(0, 1fr); }
+  .hero { padding-block: 48px; }
+  section { padding-block: 64px; }
+}
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  .steps, .gloss, .limits, .bridge { grid-template-columns: minmax(0, 1fr); }
+  .writers { grid-template-columns: minmax(0, 1fr); }
+  .writers .hd { display: none; }
+  .writers .co { padding-bottom: 4px; background: var(--soft); }
+  .stats { grid-template-columns: minmax(0, 1fr); }
+  .bar-row { grid-template-columns: minmax(0, 1fr) 110px; }
+  .bar-row .track { grid-column: 1 / -1; grid-row: 2; }
+  .panel { padding: 18px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fill { transition: width 0.6s ease; }
+  html { scroll-behavior: smooth; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header class="top">
+  <a class="logo" href="../" aria-label="Jeff Ihimbazwe, portfolio home">J.I.</a>
+  <nav class="nav" aria-label="Sections">
+    <a href="#idea">Idea</a>
+    <a href="#method">Method</a>
+    <a href="#results">Results</a>
+    <a href="#next">Next</a>
+    <a href="#words">Words</a>
+    <a class="back" href="../#work">← Portfolio</a>
+  </nav>
+</header>
+
+<div class="hero">
+  <div>
+    <div class="eyebrow">Research project · AI Department, Kyungdong University</div>
+    <h1>Which AI<br><em>wrote this?</em></h1>
+    <p class="lead">We teach a computer to read a piece of text and guess who wrote it: ChatGPT, GPT-4, Mistral, Llama, Cohere, or a real human.</p>
+  </div>
+  <div class="stats" role="list">
+    <div class="stat key" role="listitem"><b>87.9%</b><span>correct guesses with our RoBERTa model (average of 3 runs)</span></div>
+    <div class="stat" role="listitem"><b>12</b><span>possible writers: 11 AI models and humans</span></div>
+    <div class="stat" role="listitem"><b>8%</b><span>what you would get by guessing at random</span></div>
+    <div class="stat" role="listitem"><b>~100</b><span>words needed before the guess becomes reliable</span></div>
+  </div>
+</div>
+
+<section id="idea">
+  <div class="sec-head">
+    <div>
+      <div class="eyebrow">01 · The idea</div>
+      <h2>Every AI leaves a fingerprint</h2>
+    </div>
+    <p>Different AIs write in slightly different ways. They like different words, different sentence styles and different layouts. Our program learns these small habits, like a detective learning someone's handwriting. The big question: can it tell not only the company, but the exact version, like GPT-3 versus GPT-4?</p>
+  </div>
+
+  <div class="band">
+    <div class="finding">
+      <div class="tag">The 12 writers</div>
+      <h3>Two kinds of AI model</h3>
+      <p><b>Base models</b> were only trained to continue text, like a super-powered autocomplete.</p>
+      <p><b>Chat models</b> were also trained to talk like a helpful assistant. Most companies make both kinds.</p>
+      <p class="muted">We used 500 texts from each writer: 6,000 texts in total, from the free <a href="https://huggingface.co/datasets/liamdugan/raid" target="_blank" rel="noopener">RAID dataset</a>.</p>
+    </div>
+    <div>
+      <div class="writers" role="table" aria-label="The 12 writers by company and type">
+        <div class="hd" role="columnheader">Company</div>
+        <div class="hd" role="columnheader">Base model</div>
+        <div class="hd" role="columnheader">Chat model</div>
+        <div class="co" role="cell">OpenAI</div>
+        <div role="cell"><span class="chip base">gpt2</span><span class="chip base">gpt3</span></div>
+        <div role="cell"><span class="chip chat">chatgpt</span><span class="chip chat">gpt4</span></div>
+        <div class="co" role="cell">Mistral</div>
+        <div role="cell"><span class="chip base">mistral</span></div>
+        <div role="cell"><span class="chip chat">mistral-chat</span></div>
+        <div class="co" role="cell">MosaicML</div>
+        <div role="cell"><span class="chip base">mpt</span></div>
+        <div role="cell"><span class="chip chat">mpt-chat</span></div>
+        <div class="co" role="cell">Cohere</div>
+        <div role="cell"><span class="chip base">cohere</span></div>
+        <div role="cell"><span class="chip chat">cohere-chat</span></div>
+        <div class="co" role="cell">Meta</div>
+        <div role="cell" class="muted">not in our data</div>
+        <div role="cell"><span class="chip chat">llama-chat</span></div>
+        <div class="co" role="cell">People</div>
+        <div role="cell"><span class="chip human">human</span></div>
+        <div role="cell"></div>
+      </div>
+      <div class="legend" style="margin-top:16px">
+        <span><i style="background:var(--base)"></i>Base model</span>
+        <span><i style="background:var(--chat)"></i>Chat model</span>
+        <span><i style="background:var(--human)"></i>Human</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="method">
+  <div class="sec-head">
+    <div>
+      <div class="eyebrow">02 · How it works</div>
+      <h2>Six steps, all on free tools</h2>
+    </div>
+    <p>Everything runs in Google Colab with a free GPU. Training the smart model takes about 4 minutes.</p>
+  </div>
+  <ol class="steps">
+    <li><b>Collect</b><span>Download labelled texts from RAID. Skip "attacked" texts that were changed to trick detectors.</span></li>
+    <li><b>Balance</b><span>Take exactly 500 texts per writer, so the program can't win by always guessing the most common one.</span></li>
+    <li><b>Split</b><span>80% of texts for learning, 20% hidden as a final exam the program has never seen.</span></li>
+    <li><b>Baseline</b><span>A simple model counts which words each text uses (TF-IDF + logistic regression).</span></li>
+    <li><b>Fine-tune</b><span>RoBERTa, a model that already reads English well, learns our task in 3 rounds.</span></li>
+    <li><b>Analyse</b><span>Repeat 3 times with different random splits, then study which writers get mixed up and why.</span></li>
+  </ol>
+</section>
+
+<section id="results">
+  <div class="sec-head">
+    <div>
+      <div class="eyebrow">03 · Results</div>
+      <h2>Four things we found</h2>
+    </div>
+    <p>Each finding below shows the result in plain words on the left and the evidence on the right.</p>
+  </div>
+
+  <!-- Finding 1 -->
+  <div class="band">
+    <div class="finding">
+      <div class="tag">Finding 1 · Accuracy</div>
+      <h3>The smart model is right almost 9 times out of 10</h3>
+      <p>RoBERTa beat the simple word-counting model by 14 points, and the result barely moved between runs (± 0.8), so it is stable and not luck.</p>
+      <p class="callout">The black lines on the bars show how much the score changed between our 3 runs.</p>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Accuracy on 1,200 hidden test texts</div>
+      <div class="panel-sub">Average of 3 runs with different random splits</div>
+      <div class="bars" id="acc-bars"></div>
+      <div class="source">Runs with seeds 1, 2, 3 · baseline 73.4 / 74.1 / 74.3 · RoBERTa 88.8 / 87.2 / 87.7</div>
+    </div>
+  </div>
+
+  <div class="band">
+    <div class="finding">
+      <div class="tag">Finding 1 · Per writer</div>
+      <h3>Some AIs are easy to spot, some are hard</h3>
+      <ul>
+        <li><b>Easiest:</b> GPT-3 and human texts, both close to perfect.</li>
+        <li><b>Hardest:</b> mistral-chat. It writes like a "general chatbot", so it gets mixed up with other chat models.</li>
+        <li>RoBERTa improved almost every writer. The biggest jump was <b>cohere</b>, from 0.70 to 0.97.</li>
+      </ul>
+      <p class="muted">The score here is called F1. It goes from 0 to 1, and 1 means perfect.</p>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Score per writer: simple model → RoBERTa</div>
+      <div class="panel-sub">F1 score, one run (seed 42). Grey dot = simple model, coloured dot = RoBERTa.</div>
+      <div id="f1-chart"></div>
+    </div>
+  </div>
+
+  <!-- Finding 2 -->
+  <div class="band">
+    <div class="finding">
+      <div class="tag">Finding 2 · Mistakes</div>
+      <h3>Chat AIs sound alike, whoever made them</h3>
+      <p>When the program is wrong, it almost always confuses two models of the <b>same type</b>: a chat model with another chat model, or a base model with another base model.</p>
+      <p>The company does not matter. Mistral and mistral-chat come from the same company, but the program almost never mixes them up.</p>
+      <p class="callout">The chance that this pattern happened by luck is about 1 in 10<sup>22</sup>. In science, anything under 1 in 20 counts as real.</p>
+    </div>
+    <div class="panel">
+      <div class="panel-title">When the program mixes up two AIs, how often do they share…</div>
+      <div class="panel-sub">Average of 3 runs. Grey = what random mistakes would give.</div>
+      <div class="bars" id="mistake-bars"></div>
+      <div class="source">About 146 AI-vs-AI mistakes per run · binomial test p = 6.6 × 10⁻²³ (seed 42)</div>
+    </div>
+  </div>
+
+  <div class="band">
+    <div class="finding">
+      <div class="tag">Finding 2 · The evidence</div>
+      <h3>Read the grid row by row</h3>
+      <p>Each row is the <b>real</b> writer. Each column is what the program <b>guessed</b>. The diagonal is correct answers. Any dark square away from the diagonal is a pair that gets mixed up.</p>
+      <ul>
+        <li>Switch between the two models to see RoBERTa clean up most mistakes.</li>
+        <li>The mistakes that stay are mostly between writers with the <b>same colour</b> label.</li>
+        <li>Hover a square to see the exact count.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <div class="toggle" role="group" aria-label="Choose model">
+        <button type="button" id="btn-rob" aria-pressed="true">RoBERTa · 87.5%</button>
+        <button type="button" id="btn-base" aria-pressed="false">Simple model · 75.8%</button>
+      </div>
+      <div class="mx-scroll"><table class="mx" id="matrix" aria-label="Confusion matrix"></table></div>
+      <div class="axis-note"><span>Rows: real writer · Columns: guessed writer · 100 test texts per row</span><span>One run (seed 42)</span></div>
+    </div>
+  </div>
+
+  <!-- Finding 3 -->
+  <div class="band">
+    <div class="finding">
+      <div class="tag">Finding 3 · Text length</div>
+      <h3>It needs about 100 words</h3>
+      <p>We gave the trained model only the first few words of each test text. At 100 words it is right 81% of the time. Under 50 words, it is wrong more often than right.</p>
+      <p>So for a tiny text like <span class="mono">"I like you"</span>, nobody can reliably say which AI wrote it. Even with 5 words, though, it is still about 4 times better than guessing.</p>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Accuracy goes up as the model reads more words</div>
+      <div class="panel-sub">RoBERTa on the 1,200 test texts, cut after N words (seed 42)</div>
+      <div id="len-chart"></div>
+    </div>
+  </div>
+
+  <!-- Finding 4 -->
+  <div class="band">
+    <div class="finding">
+      <div class="tag">Finding 4 · Formatting</div>
+      <h3>The layout gives it away</h3>
+      <p>"Formatting" means how a text looks: where the new lines are, how long the paragraphs are, whether there are lists. We found this by accident, when a bug removed all the line breaks and the score crashed.</p>
+      <p>A model trained without formatting still reaches 78.3%, so the words alone carry a lot. But line breaks and paragraphs add another 9 points.</p>
+      <p class="callout">Someone could fool a detector just by changing the layout. A good detector should learn from texts both with and without formatting.</p>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Same model, same texts, different layout</div>
+      <div class="panel-sub">RoBERTa accuracy, one run (seed 42)</div>
+      <div class="bars" id="fmt-bars"></div>
+      <div class="bridge">
+        <div><b class="num">75.8%</b><span>Simple model, counts words only</span></div>
+        <div><b class="num plus">+2.5</b><span>RoBERTa understanding words better (78.3%)</span></div>
+        <div><b class="num plus">+9.1</b><span>RoBERTa also reading the layout (87.4%)</span></div>
+      </div>
+      <div class="source">So most of RoBERTa's lead over the simple model comes from formatting.</div>
+    </div>
+  </div>
+</section>
+
+<section id="next">
+  <div class="sec-head">
+    <div>
+      <div class="eyebrow">04 · What's next</div>
+      <h2>Testing today's AIs</h2>
+    </div>
+    <p>RAID is one to two years old. Newer models are not in it, so we are building our own data. We give new models the exact same prompts RAID gave ChatGPT, so the only difference is who wrote the answer.</p>
+  </div>
+  <div class="cols">
+    <div class="card">
+      <span class="status live">In progress</span>
+      <h3>Gemini, two versions</h3>
+      <p class="muted">Collecting 500 texts each from gemini-3.5-flash-lite and gemini-3.1-flash-lite through Google's free API. Can the program tell two neighbouring versions apart?</p>
+    </div>
+    <div class="card">
+      <span class="status">Planned</span>
+      <h3>Gemma, two sizes</h3>
+      <p class="muted">Gemma 4 26B and 31B are open models from the same family in two sizes. Does a bigger model write differently from a smaller one?</p>
+    </div>
+    <div class="card">
+      <span class="status">Planned</span>
+      <h3>GPT-4o and Claude</h3>
+      <p class="muted">These need a small paid API budget. Then we test whether "chat models sound alike" still holds for the newest models.</p>
+    </div>
+  </div>
+
+  <ul class="limits">
+    <li><b>Repeat Findings 3 and 4 three times</b><span>Like Finding 1, so we can report an average and a spread instead of one run.</span></li>
+    <li><b>Check how RAID groups GPT-3</b><span>Its GPT-3 may have had some assistant training. If it is really a chat model, Finding 2 needs to be redone.</span></li>
+    <li><b>Check how RAID cleaned each model's text</b><span>If line breaks were changed during collection, part of Finding 4 may come from the data, not the AI.</span></li>
+    <li><b>Make Gemini a fair test</b><span>Gemini writes with markdown like **bold** and ## headings. We will test it with and without formatting, so it isn't spotted by layout alone.</span></li>
+  </ul>
+</section>
+
+<section id="words">
+  <div class="sec-head">
+    <div>
+      <div class="eyebrow">05 · Words to know</div>
+      <h2>The jargon, in plain words</h2>
+    </div>
+    <p>New to machine learning? These are all the technical words used on this page.</p>
+  </div>
+  <dl class="gloss">
+    <div><dt>Dataset</dt><dd>A big collection of examples a computer learns from.</dd></div>
+    <div><dt>Balanced</dt><dd>Every group has the same number of examples.</dd></div>
+    <div><dt>Train / test split</dt><dd>Learning texts, and "exam" texts the model has never seen.</dd></div>
+    <div><dt>Accuracy</dt><dd>How many test texts the model got right, in percent.</dd></div>
+    <div><dt>Baseline</dt><dd>A simple first model. Better models must beat its score.</dd></div>
+    <div><dt>TF-IDF</dt><dd>A way to turn text into numbers by counting special words.</dd></div>
+    <div><dt>RoBERTa</dt><dd>A language model that already knows a lot of English.</dd></div>
+    <div><dt>Fine-tuning</dt><dd>Teaching an already smart model one new task.</dd></div>
+    <div><dt>Epoch</dt><dd>One full pass through all the learning texts.</dd></div>
+    <div><dt>Seed</dt><dd>The starting number for randomness. A new seed gives a new shuffle.</dd></div>
+    <div><dt>Mean ± spread</dt><dd>The average result, and how much it moves between runs.</dd></div>
+    <div><dt>Confusion matrix</dt><dd>A grid showing which writer gets mistaken for which.</dd></div>
+    <div><dt>F1 score</dt><dd>One score from 0 to 1 for how well a writer is recognised.</dd></div>
+    <div><dt>p-value</dt><dd>The chance a result happened by pure luck. Under 0.05 counts as real.</dd></div>
+    <div><dt>Base model</dt><dd>An AI trained only to continue text.</dd></div>
+    <div><dt>Chat model</dt><dd>An AI also trained to act like a helpful assistant.</dd></div>
+    <div><dt>API</dt><dd>A way for code to talk to an AI service directly.</dd></div>
+    <div><dt>Rate limit</dt><dd>The most requests a service allows per minute or per day.</dd></div>
+    <div><dt>GPU</dt><dd>A computer chip that makes AI training much faster.</dd></div>
+    <div><dt>Prompt</dt><dd>The question or instruction given to an AI.</dd></div>
+  </dl>
+</section>
+
+<footer>
+  <div>
+    <div class="eyebrow">Get involved</div>
+    <h2 style="margin-top:14px">Want to work on this with me?</h2>
+    <p class="muted" style="margin-top:18px">I'm looking for teammates interested in AI, NLP or machine learning. Python helps, curiosity matters most. You'll get real research experience and a strong project for your CV.</p>
+  </div>
+  <div class="contact">
+    <div><b>Jeff Ihimbazwe</b><div class="muted">AI student, Kyungdong University, South Korea</div></div>
+    <a class="mail" href="mailto:Ihimbazwejeff15@gmail.com">Ihimbazwejeff15@gmail.com</a>
+    <a class="btn" href="mailto:Ihimbazwejeff15@gmail.com">Email Jeff</a>
+    <div class="tools" aria-label="Tools used">
+      <span>Python</span><span>Hugging Face</span><span>RoBERTa</span><span>scikit-learn</span><span>Google Colab</span><span>Gemini API</span>
+    </div>
+    <p class="muted" style="font-size:0.95rem">Data: RAID benchmark, Dugan et al., 2024. All numbers on this page come from our own Colab experiments.</p>
+  </div>
+</footer>
+
+</div>
+
+<script>
+(function () {
+  var NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, text) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  // ---------- Simple bar rows ----------
+  function barRow(host, label, value, opts) {
+    opts = opts || {};
+    var row = document.createElement("div");
+    row.className = "bar-row";
+    var l = document.createElement("div"); l.className = "lbl"; l.innerHTML = label;
+    var t = document.createElement("div"); t.className = "track";
+    var f = document.createElement("div"); f.className = "fill" + (opts.hi ? " hi" : ""); f.style.width = value + "%";
+    t.appendChild(f);
+    if (opts.sd) {
+      var w = document.createElement("div"); w.className = "whisk";
+      w.style.left = (value - opts.sd) + "%"; w.style.width = (opts.sd * 2) + "%";
+      t.appendChild(w);
+    }
+    var v = document.createElement("div"); v.className = "val"; v.textContent = opts.text || (value.toFixed(1) + "%");
+    row.appendChild(l); row.appendChild(t); row.appendChild(v);
+    host.appendChild(row);
+  }
+
+  var acc = document.getElementById("acc-bars");
+  barRow(acc, "Random guess", 8.3, { text: "8.3%" });
+  barRow(acc, "Simple model", 73.9, { sd: 0.5, text: "73.9 ± 0.5" });
+  barRow(acc, "<b>RoBERTa</b>", 87.9, { hi: true, sd: 0.8, text: "87.9 ± 0.8" });
+
+  var mis = document.getElementById("mistake-bars");
+  barRow(mis, "<b>Same type</b> (base or chat)", 88.5, { hi: true, text: "88.5%" });
+  barRow(mis, "<span class='muted'>if random</span>", 46.5, { text: "46.5%" });
+  barRow(mis, "<b>Same company</b>", 12.5, { hi: true, text: "12.5%" });
+  barRow(mis, "<span class='muted'>if random</span>", 13.9, { text: "13.9%" });
+
+  var fmt = document.getElementById("fmt-bars");
+  barRow(fmt, "<b>Trained and tested with layout</b>", 87.4, { hi: true });
+  barRow(fmt, "Trained and tested without layout", 78.3);
+  barRow(fmt, "Trained with layout, tested without", 58.6);
+
+  // ---------- Writers ----------
+  var labels = ["chatgpt","cohere","cohere-chat","gpt2","gpt3","gpt4","human","llama-chat","mistral","mistral-chat","mpt","mpt-chat"];
+  var kind = { "chatgpt":"chat","cohere":"base","cohere-chat":"chat","gpt2":"base","gpt3":"base","gpt4":"chat","human":"human","llama-chat":"chat","mistral":"base","mistral-chat":"chat","mpt":"base","mpt-chat":"chat" };
+
+  // ---------- F1 dumbbell ----------
+  var f1Base = { "chatgpt":.77,"cohere":.70,"cohere-chat":.62,"gpt2":.81,"gpt3":.80,"gpt4":.83,"human":.75,"llama-chat":.95,"mistral":.68,"mistral-chat":.78,"mpt":.66,"mpt-chat":.73 };
+  var f1Rob  = { "chatgpt":.79,"cohere":.97,"cohere-chat":.84,"gpt2":.84,"gpt3":.99,"gpt4":.92,"human":.98,"llama-chat":.94,"mistral":.79,"mistral-chat":.71,"mpt":.85,"mpt-chat":.88 };
+  (function () {
+    var order = labels.slice().sort(function (a, b) { return f1Rob[b] - f1Rob[a]; });
+    var W = 720, rowH = 32, top0 = 30, left = 130, right = 60, H = top0 + order.length * rowH + 30;
+    var lo = 0.5, hi = 1.0;
+    var x = function (v) { return left + (v - lo) / (hi - lo) * (W - left - right); };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, class: "chart", role: "img", "aria-label": "F1 score per writer for the simple model and RoBERTa" });
+    [0.5, 0.6, 0.7, 0.8, 0.9, 1.0].forEach(function (t) {
+      svg.appendChild(el("line", { x1: x(t), x2: x(t), y1: top0 - 10, y2: H - 26, class: "c-grid" }));
+      svg.appendChild(el("text", { x: x(t), y: H - 8, "text-anchor": "middle", class: "c-axis" }, t.toFixed(1)));
+    });
+    order.forEach(function (name, i) {
+      var y = top0 + i * rowH + rowH / 2;
+      var cls = "c-" + kind[name];
+      svg.appendChild(el("text", { x: left - 14, y: y + 4, "text-anchor": "end", class: "c-label" }, name));
+      svg.appendChild(el("line", { x1: x(f1Base[name]), x2: x(f1Rob[name]), y1: y, y2: y, class: "c-conn" }));
+      var d0 = el("circle", { cx: x(f1Base[name]), cy: y, r: 6, class: "c-muted-dot" });
+      d0.appendChild(el("title", {}, name + ", simple model: " + f1Base[name].toFixed(2)));
+      svg.appendChild(d0);
+      var d1 = el("circle", { cx: x(f1Rob[name]), cy: y, r: 7.5, class: cls });
+      d1.appendChild(el("title", {}, name + ", RoBERTa: " + f1Rob[name].toFixed(2)));
+      svg.appendChild(d1);
+      var tx = Math.max(f1Rob[name], f1Base[name]);
+      svg.appendChild(el("text", { x: x(tx) + 14, y: y + 4, class: "c-label" }, f1Rob[name].toFixed(2)));
+    });
+    document.getElementById("f1-chart").appendChild(svg);
+    var lg = document.createElement("div"); lg.className = "legend"; lg.style.marginTop = "10px";
+    lg.innerHTML = "<span><i style='background:var(--muted)'></i>Simple model</span><span><i style='background:var(--base)'></i>RoBERTa, base model</span><span><i style='background:var(--chat)'></i>RoBERTa, chat model</span><span><i style='background:var(--human)'></i>RoBERTa, human</span>";
+    document.getElementById("f1-chart").appendChild(lg);
+  })();
+
+  // ---------- Confusion matrices (seed 42) ----------
+  var M = {
+    rob: [
+      [84,0,0,0,0,7,0,1,0,4,0,4],
+      [0,94,0,0,2,0,4,0,0,0,0,0],
+      [0,0,79,0,0,0,0,4,0,17,0,0],
+      [0,0,3,92,0,0,0,0,0,5,0,0],
+      [0,0,0,0,100,0,0,0,0,0,0,0],
+      [6,0,0,0,0,93,0,0,0,0,0,1],
+      [0,0,0,0,0,0,100,0,0,0,0,0],
+      [3,0,0,0,0,1,0,95,0,1,0,0],
+      [0,0,1,19,0,0,0,0,76,0,2,2],
+      [13,0,4,1,0,1,0,3,0,71,0,7],
+      [1,0,0,7,0,0,0,0,16,0,76,0],
+      [6,0,0,0,0,1,0,0,0,2,1,90]
+    ],
+    base: [
+      [75,2,4,0,0,7,1,1,1,1,0,8],
+      [0,77,11,2,5,0,5,0,0,0,0,0],
+      [1,24,58,1,4,4,3,2,1,2,0,0],
+      [0,0,0,85,1,0,3,0,1,1,9,0],
+      [0,2,2,3,88,0,3,0,1,0,1,0],
+      [4,1,0,0,0,89,2,0,0,1,0,3],
+      [0,13,0,2,3,0,77,0,4,0,1,0],
+      [0,0,1,0,0,3,0,94,0,1,0,1],
+      [0,1,1,11,2,0,6,0,61,1,17,0],
+      [3,0,5,2,1,3,3,1,0,70,1,11],
+      [0,1,5,3,15,0,1,0,9,0,66,0],
+      [11,0,1,0,0,8,0,0,2,2,6,70]
+    ]
+  };
+  var table = document.getElementById("matrix");
+  function drawMatrix(key) {
+    var data = M[key];
+    var html = "<thead><tr><th></th>";
+    labels.forEach(function (l) { html += "<th scope='col'><div class='" + kind[l] + "'>" + l + "</div></th>"; });
+    html += "</tr></thead><tbody>";
+    data.forEach(function (row, i) {
+      html += "<tr><th scope='row' class='" + kind[labels[i]] + "'>" + labels[i] + "</th>";
+      row.forEach(function (v, j) {
+        var pct = Math.round(Math.pow(v / 100, 0.6) * 92);
+        var cls = v === 0 ? "zero" : (pct > 52 ? "dark" : "");
+        var bg = v === 0 ? "var(--soft)" : "color-mix(in srgb, var(--accent) " + pct + "%, var(--surface))";
+        var tip = "Real: " + labels[i] + " → guessed: " + labels[j] + ": " + v + " texts";
+        html += "<td class='" + cls + "' style='background:" + bg + "' title='" + tip + "'>" + v + "</td>";
+      });
+      html += "</tr>";
+    });
+    html += "</tbody>";
+    table.innerHTML = html;
+  }
+  var bRob = document.getElementById("btn-rob"), bBase = document.getElementById("btn-base");
+  function pick(key) {
+    bRob.setAttribute("aria-pressed", key === "rob" ? "true" : "false");
+    bBase.setAttribute("aria-pressed", key === "base" ? "true" : "false");
+    drawMatrix(key);
+  }
+  bRob.addEventListener("click", function () { pick("rob"); });
+  bBase.addEventListener("click", function () { pick("base"); });
+  drawMatrix("rob");
+
+  // ---------- Length chart ----------
+  (function () {
+    var words = [5, 10, 20, 50, 100, 200];
+    var kept = [36.8, 41.8, 45.0, 60.2, 81.2, 87.6];
+    var wiped = [26.9, 29.0, 28.7, 39.1, 52.1, 58.8];
+    var W = 760, H = 400, left = 56, right = 150, y0 = 24, bottom = 54;
+    var lo = Math.log(5), hi = Math.log(200);
+    var x = function (w) { return left + (Math.log(w) - lo) / (hi - lo) * (W - left - right); };
+    var y = function (v) { return y0 + (100 - v) / 100 * (H - y0 - bottom); };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, class: "chart", role: "img", "aria-label": "Accuracy by number of words read" });
+    svg.appendChild(el("rect", { x: x(100), y: y0, width: x(200) - x(100), height: y(0) - y0, class: "c-band" }));
+    svg.appendChild(el("text", { x: x(100) + 8, y: y0 + 16, class: "c-axis" }, "reliable zone"));
+    [0, 25, 50, 75, 100].forEach(function (t) {
+      svg.appendChild(el("line", { x1: left, x2: W - right, y1: y(t), y2: y(t), class: "c-grid" }));
+      svg.appendChild(el("text", { x: left - 10, y: y(t) + 4, "text-anchor": "end", class: "c-axis" }, t + "%"));
+    });
+    words.forEach(function (w) {
+      svg.appendChild(el("text", { x: x(w), y: H - bottom + 22, "text-anchor": "middle", class: "c-axis" }, w));
+    });
+    svg.appendChild(el("text", { x: (left + W - right) / 2, y: H - 8, "text-anchor": "middle", class: "c-axis" }, "Words the model reads (log scale)"));
+    svg.appendChild(el("line", { x1: left, x2: W - right, y1: y(8.3), y2: y(8.3), class: "c-ref" }));
+    svg.appendChild(el("text", { x: W - right + 10, y: y(8.3) + 4, class: "c-axis" }, "Random: 8%"));
+
+    function line(vals, lineCls, dotCls, name, labelAll) {
+      var d = vals.map(function (v, i) { return (i ? "L" : "M") + x(words[i]) + " " + y(v); }).join(" ");
+      svg.appendChild(el("path", { d: d, class: lineCls }));
+      vals.forEach(function (v, i) {
+        var c = el("circle", { cx: x(words[i]), cy: y(v), r: 5.5, class: dotCls });
+        c.appendChild(el("title", {}, name + ", " + words[i] + " words: " + v + "%"));
+        svg.appendChild(c);
+        if (labelAll) svg.appendChild(el("text", { x: x(words[i]), y: y(v) - 13, "text-anchor": "middle", class: "c-label" }, v + "%"));
+      });
+    }
+    line(wiped, "c-muted-line", "c-muted-dot", "Layout removed", false);
+    line(kept, "c-accent-line", "c-accent-dot", "Layout kept", true);
+    svg.appendChild(el("text", { x: x(200) + 12, y: y(87.6) + 4, class: "c-strong" }, "Layout kept"));
+    svg.appendChild(el("text", { x: x(200) + 12, y: y(58.8) + 4, class: "c-axis" }, "Layout removed"));
+    svg.appendChild(el("text", { x: x(200) + 12, y: y(58.8) + 20, class: "c-axis" }, "58.8% at 200"));
+    document.getElementById("len-chart").appendChild(svg);
+  })();
+
+})();
+</script>
+</body>
+</html>
