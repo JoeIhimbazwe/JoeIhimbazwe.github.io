@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Aura: your music video becomes your wallpaper</title>
+  <meta name="description" content="Aura turns the song you're playing into your desktop: its music video as your wallpaper, a glass player, synced lyrics and a beat-reactive edge light. For Windows 10 and 11." />
+  <meta property="og:title" content="Aura: your music video becomes your wallpaper" />
+  <meta property="og:description" content="Music video wallpaper, glass player, synced lyrics and a beat-reactive edge light for Windows." />
+  <meta property="og:image" content="screenshot.jpg" />
+  <style>
+    :root { --a: 255, 138, 61; --b: 92, 225, 200; --text: #f5f5f7; --muted: rgba(245,245,247,.62); --line: rgba(255,255,255,.12); }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { background: #07070a; color: var(--text); font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif; line-height: 1.5; overflow-x: hidden; }
+    a { color: inherit; }
+    .wrap { width: min(1120px, 92vw); margin: 0 auto; }
+
+    /* the screen-edge glow, like the app */
+    .edge { position: fixed; inset: 0; pointer-events: none; z-index: 50; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), inset 0 -26px 60px -30px rgba(var(--a), .55), inset 0 26px 60px -40px rgba(var(--b), .35); animation: pulse 1.9s ease-in-out infinite; }
+    @keyframes pulse { 50% { box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), inset 0 -40px 80px -30px rgba(var(--a), .8), inset 0 36px 70px -40px rgba(var(--b), .5); } }
+
+    nav { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
+    .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; letter-spacing: .01em; text-decoration: none; }
+    .logo i { width: 26px; height: 26px; border-radius: 50%; border: 3px solid #fff; display: grid; place-items: center; box-shadow: 0 0 18px rgba(var(--a), .6); }
+    .logo i::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #fff; }
+    nav .links { display: flex; gap: 22px; font-size: 14px; color: var(--muted); }
+    nav .links a { text-decoration: none; }
+    nav .links a:hover { color: var(--text); }
+
+    .hero { text-align: center; padding: 70px 0 40px; position: relative; }
+    .hero::before { content: ""; position: absolute; left: 50%; top: 0; width: 900px; height: 520px; transform: translateX(-50%); background: radial-gradient(closest-side, rgba(var(--a), .22), transparent 70%), radial-gradient(closest-side at 70% 60%, rgba(var(--b), .14), transparent 70%); filter: blur(20px); z-index: -1; }
+    .tag { display: inline-block; font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; color: rgb(var(--b)); border: 1px solid rgba(var(--b), .35); border-radius: 99px; padding: 5px 12px; margin-bottom: 22px; }
+    h1 { font-size: clamp(38px, 6.4vw, 76px); line-height: 1.02; font-weight: 800; letter-spacing: -.03em; }
+    h1 em { font-style: normal; background: linear-gradient(90deg, rgb(var(--a)), #ffd27a 45%, rgb(var(--b))); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .sub { max-width: 620px; margin: 20px auto 0; font-size: clamp(16px, 1.6vw, 19px); color: var(--muted); }
+    .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 34px; }
+    .btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 24px; border-radius: 14px; font-weight: 700; font-size: 15.5px; text-decoration: none; transition: transform .15s, box-shadow .2s, background .2s; }
+    .btn:hover { transform: translateY(-2px); }
+    .btn.primary { background: #fff; color: #0a0a0c; box-shadow: 0 10px 40px rgba(var(--a), .35); }
+    .btn.ghost { border: 1px solid var(--line); background: rgba(255,255,255,.04); }
+    .btn.ghost:hover { background: rgba(255,255,255,.09); }
+    .btn svg { width: 18px; height: 18px; }
+    .fine { margin-top: 14px; font-size: 13px; color: var(--muted); }
+
+    .shot { margin: 56px auto 0; width: min(1080px, 94vw); border-radius: 20px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 40px 120px rgba(0,0,0,.6), 0 0 80px rgba(var(--a), .12); transform: perspective(1600px) rotateX(6deg); transform-origin: top center; }
+    .shot img { width: 100%; display: block; }
+
+    section { padding: 90px 0 0; }
+    h2 { font-size: clamp(28px, 3.6vw, 42px); font-weight: 800; letter-spacing: -.02em; text-align: center; }
+    .lead { text-align: center; color: var(--muted); margin: 10px auto 0; max-width: 560px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-top: 40px; }
+    .card { border: 1px solid var(--line); background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.015)); border-radius: 18px; padding: 22px; }
+    .card .ico { font-size: 22px; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: rgba(var(--a), .14); margin-bottom: 14px; }
+    .card h3 { font-size: 16.5px; margin-bottom: 6px; }
+    .card p { font-size: 14px; color: var(--muted); }
+
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 40px; counter-reset: s; }
+    .step { border-left: 2px solid rgba(var(--a), .5); padding: 4px 0 4px 18px; }
+    .step::before { counter-increment: s; content: "0" counter(s); font-weight: 800; color: rgb(var(--a)); font-size: 13px; letter-spacing: .1em; }
+    .step h3 { font-size: 16px; margin: 6px 0 4px; }
+    .step p { font-size: 14px; color: var(--muted); }
+
+    .price { max-width: 460px; margin: 40px auto 0; text-align: center; border: 1px solid rgba(var(--a), .35); border-radius: 22px; padding: 34px 28px; background: radial-gradient(120% 90% at 50% 0%, rgba(var(--a), .14), transparent 60%), rgba(255,255,255,.02); }
+    .price .amt { font-size: 54px; font-weight: 800; letter-spacing: -.03em; }
+    .price .amt small { font-size: 16px; color: var(--muted); font-weight: 600; letter-spacing: 0; }
+    .price ul { list-style: none; margin: 18px 0 26px; text-align: left; display: grid; gap: 8px; font-size: 14.5px; }
+    .price li::before { content: "✓"; color: rgb(var(--b)); font-weight: 800; margin-right: 10px; }
+    .price .btn { width: 100%; justify-content: center; }
+    .price .or { font-size: 13px; color: var(--muted); margin-top: 12px; }
+
+    .faq { max-width: 760px; margin: 36px auto 0; display: grid; gap: 10px; }
+    details { border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; background: rgba(255,255,255,.02); }
+    summary { cursor: pointer; font-weight: 650; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+    summary::after { content: "+"; color: var(--muted); font-size: 20px; line-height: 1; }
+    details[open] summary::after { content: "–"; }
+    details p { color: var(--muted); font-size: 14.5px; margin-top: 10px; }
+
+    footer { margin-top: 100px; padding: 30px 0 50px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 13px; }
+    footer a { text-decoration: none; }
+    footer a:hover { color: var(--text); }
+    @media (max-width: 640px) { nav .links { display: none; } .shot { transform: none; } }
+  </style>
+</head>
+<body>
+  <div class="edge"></div>
+  <div class="wrap">
+    <nav>
+      <a class="logo" href="#"><i></i>Aura</a>
+      <div class="links"><a href="#features">Features</a><a href="#how">How it works</a><a href="#price">Price</a><a href="#faq">FAQ</a></div>
+    </nav>
+
+    <header class="hero">
+      <div class="tag">For Windows 10 &amp; 11</div>
+      <h1>Your music video<br /><em>becomes your wallpaper.</em></h1>
+      <p class="sub">Play a song in Spotify or YouTube Music and Aura fills your desktop with its music video, synced to the beat, with a glass player, lyrics that land word by word and a glow that pulses around your screen.</p>
+      <div class="cta">
+        <a class="btn primary" id="download" href="Aura_0.1.0_x64-setup.exe" download>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 3h2v10.2l3.6-3.6 1.4 1.4-6 6-6-6 1.4-1.4 3.6 3.6zM4 19h16v2H4z"/></svg>
+          Download free trial
+        </a>
+        <a class="btn ghost" href="#price">Buy Aura · $2.99</a>
+      </div>
+      <p class="fine">7 days free, everything included · 2 MB download · no account needed</p>
+    </header>
+  </div>
+
+  <div class="shot"><img src="screenshot.jpg" alt="Aura on a Windows desktop: big clock, song list, album cards and edge glow" /></div>
+
+  <div class="wrap">
+    <section id="features">
+      <h2>Everything moves with your music</h2>
+      <p class="lead">Each feature has its own on/off switch. Use as much or as little as you like.</p>
+      <div class="grid">
+        <div class="card"><div class="ico">🎬</div><h3>Music video wallpaper</h3><p>The official video of whatever's playing fills your screen, kept in time with the song.</p></div>
+        <div class="card"><div class="ico">✨</div><h3>Beat-reactive edge light</h3><p>A glow around your screen pulses with the bass, even while you work in other apps.</p></div>
+        <div class="card"><div class="ico">🎤</div><h3>Synced lyrics</h3><p>Big, bold lyrics appear word by word, right on time.</p></div>
+        <div class="card"><div class="ico">💿</div><h3>Glass player &amp; album cards</h3><p>Flip through the artist's albums with your mouse. Play, pause, skip and search without leaving your desktop.</p></div>
+        <div class="card"><div class="ico">🖥️</div><h3>Live wallpaper mode</h3><p>Aura slides behind your desktop icons. When the music stops, your normal wallpaper comes back.</p></div>
+        <div class="card"><div class="ico">🪶</div><h3>Light as a feather</h3><p>A 2 MB app that pauses itself during games and full-screen video, and does nothing when nothing's playing.</p></div>
+      </div>
+    </section>
+
+    <section id="how">
+      <h2>Set up in under a minute</h2>
+      <div class="steps">
+        <div class="step"><h3>Download &amp; install</h3><p>Run the installer. If Windows shows a blue box, click <b>More info → Run anyway</b>.</p></div>
+        <div class="step"><h3>Play a song</h3><p>Start anything in Spotify, YouTube Music or another music app. Aura picks it up automatically.</p></div>
+        <div class="step"><h3>Enjoy</h3><p>The video, lyrics and glow appear. Press <b>W</b> to make it your wallpaper.</p></div>
+      </div>
+    </section>
+
+    <section id="price">
+      <h2>Pay once. Keep it forever.</h2>
+      <p class="lead">Try everything free for 7 days. If you love it, buy it once. No subscription.</p>
+      <div class="price">
+        <div class="amt">$2.99 <small>one time</small></div>
+        <ul>
+          <li>Every feature, forever</li>
+          <li>Use it on up to 3 of your PCs</li>
+          <li>Free updates</li>
+          <li>Licence key emailed to you instantly</li>
+        </ul>
+        <a class="btn primary" id="buy" href="https://mindgrid38.gumroad.com/">Buy Aura</a>
+        <p class="or">Already have Aura? Open it → <b>···</b> → enter your key.</p>
+      </div>
+    </section>
+
+    <section id="faq">
+      <h2>Questions</h2>
+      <div class="faq">
+        <details><summary>Which music apps does it work with?</summary><p>Spotify and YouTube Music work best. Aura also follows most apps that show up in Windows' media controls, like Apple Music, Boomplay and many browsers.</p></details>
+        <details><summary>Do I need Spotify Premium?</summary><p>No. Aura works with free Spotify too. Premium only matters for one extra: clicking a song inside Aura to start it straight away.</p></details>
+        <details><summary>Where do the music videos come from?</summary><p>From YouTube, played through YouTube's official player. Some record labels don't allow their videos to play outside YouTube. For those songs, Aura shows the album art instead.</p></details>
+        <details><summary>Will it slow down my PC?</summary><p>No. The whole app is about 2 MB, it pauses during games and full-screen apps, and it does nothing at all when no music is playing.</p></details>
+        <details><summary>Can I turn features off?</summary><p>Yes. Every feature has its own switch in the <b>···</b> menu: music video, edge light, lyrics, clock, song list and album cards. You can also start Aura with Windows, or not.</p></details>
+        <details><summary>Why does Windows say "Windows protected your PC"?</summary><p>Windows shows that for new apps from small developers. Click <b>More info</b> → <b>Run anyway</b>. It's a one-time step.</p></details>
+        <details><summary>What happens after the 7-day trial?</summary><p>Aura asks for a licence key. Buy it once and everything keeps working. Your key works on up to 3 PCs.</p></details>
+        <details><summary>Does it work on Mac?</summary><p>Not yet. Windows 10 and 11 for now.</p></details>
+      </div>
+    </section>
+
+    <footer>
+      <span>© 2026 Aura · Made by Jeff Ihimbazwe</span>
+      <span><a href="privacy.html">Privacy policy</a> · <a href="https://mindgrid38.gumroad.com/">Support</a></span>
+    </footer>
+  </div>
+</body>
+</html>
